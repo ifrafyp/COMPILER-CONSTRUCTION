@@ -1,0 +1,175 @@
+using System;
+using System.Collections.Generic;
+
+namespace DFA_ABCC
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            Console.WriteLine("DFA to accept string 'abcc'");
+            Console.WriteLine("Grammar: S -> abcc");
+            Console.WriteLine("States: S0 -> S1 -> S2 -> S3 (Final)");
+            Console.WriteLine("=====================================");
+
+            while (true)
+            {
+                Console.Write("\nEnter input string (or 'quit' to exit): ");
+                string input = Console.ReadLine();
+
+                if (input?.ToLower() == "quit")
+                    break;
+
+                bool result = ProcessDFA(input);
+
+                if (result)
+                    Console.WriteLine("RESULT: ACCEPTED ✓");
+                else
+                    Console.WriteLine("RESULT: REJECTED ✗");
+            }
+        }
+
+        static bool ProcessDFA(string input)
+        {
+            // Define states
+            string initialState = "S0";
+            string finalState = "S3";
+            string errorState = "Se";
+
+            // Define transition table
+            var transitionTable = new Dictionary<string, Dictionary<char, string>>
+            {
+                // S0: Initial state, expecting 'a'
+                ["S0"] = new Dictionary<char, string>
+                {
+                    ['a'] = "S1",
+                    ['b'] = "Se",
+                    ['c'] = "Se"
+                },
+
+                // S1: Got 'a', expecting 'b'
+                ["S1"] = new Dictionary<char, string>
+                {
+                    ['a'] = "Se",
+                    ['b'] = "S2",
+                    ['c'] = "Se"
+                },
+
+                // S2: Got "ab", expecting first 'c'
+                ["S2"] = new Dictionary<char, string>
+                {
+                    ['a'] = "Se",
+                    ['b'] = "Se",
+                    ['c'] = "S3"
+                },
+
+                // S3: Got "abc", expecting second 'c' (final state)
+                ["S3"] = new Dictionary<char, string>
+                {
+                    ['a'] = "Se",
+                    ['b'] = "Se",
+                    ['c'] = "S3"  // Stay in final state for additional 'c's
+                },
+
+                // Se: Error state (sink state)
+                ["Se"] = new Dictionary<char, string>
+                {
+                    ['a'] = "Se",
+                    ['b'] = "Se",
+                    ['c'] = "Se"
+                }
+            };
+
+            // Validate input
+            if (string.IsNullOrEmpty(input))
+            {
+                Console.WriteLine("Error: Empty input");
+                return false;
+            }
+
+            string currentState = initialState;
+            Console.WriteLine($"Starting from state: {currentState}");
+
+            // Process each character
+            for (int i = 0; i < input.Length; i++)
+            {
+                char currentChar = input[i];
+
+                // Check if character is valid
+                if (currentChar != 'a' && currentChar != 'b' && currentChar != 'c')
+                {
+                    Console.WriteLine($"Error: Invalid character '{currentChar}' at position {i + 1}");
+                    return false;
+                }
+
+                // Check if transition exists
+                if (!transitionTable.ContainsKey(currentState) ||
+                    !transitionTable[currentState].ContainsKey(currentChar))
+                {
+                    Console.WriteLine($"No transition from {currentState} on '{currentChar}'");
+                    currentState = errorState;
+                    break;
+                }
+
+                // Make transition
+                string nextState = transitionTable[currentState][currentChar];
+                Console.WriteLine($"'{currentChar}': {currentState} -> {nextState}");
+                currentState = nextState;
+
+                // If we reach error state, no need to continue
+                if (currentState == errorState)
+                    break;
+            }
+
+            Console.WriteLine($"Final state: {currentState}");
+
+            // Check if we ended in the final state
+            return currentState == finalState;
+        }
+    }
+}
+
+// Alternative simplified version for just checking acceptance
+class SimpleDFA
+{
+    public static bool AcceptsABCC(string input)
+    {
+        if (input == null || input.Length < 4)
+            return false;
+
+        // For exact match of "abcc" pattern
+        if (input.Length == 4)
+        {
+            return input == "abcc";
+        }
+
+        // For strings that start with "abcc" and have additional 'c's
+        if (input.Substring(0, 4) == "abcc")
+        {
+            // Check if remaining characters are all 'c's
+            for (int i = 4; i < input.Length; i++)
+            {
+                if (input[i] != 'c')
+                    return false;
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    // Test method
+    public static void TestDFA()
+    {
+        string[] testCases = { "abcc", "abc", "abccc", "abcccc", "abcd", "bacc", "abbc", "" };
+
+        Console.WriteLine("\nSimple DFA Test Cases:");
+        Console.WriteLine("=====================");
+
+        foreach (string test in testCases)
+        {
+            bool result = AcceptsABCC(test);
+            Console.WriteLine($"'{test}' -> {(result ? "ACCEPTED" : "REJECTED")}");
+        }
+    }
+}
