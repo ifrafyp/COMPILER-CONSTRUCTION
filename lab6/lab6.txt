@@ -1,0 +1,216 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
+
+namespace FirstSets
+{
+    class Program
+    {
+        static Dictionary<string, List<string[]>> productionRules = new Dictionary<string, List<string[]>>();
+        static Dictionary<string, HashSet<string>> firstSets = new Dictionary<string, HashSet<string>>();
+
+        static void Main(string[] args)
+        {
+            Console.WriteLine("FIRST Sets Calculator");
+            Console.WriteLine("Enter production rules (format: A->alpha, use ~ for epsilon)");
+            Console.WriteLine("Enter 'END' to finish input");
+            Console.WriteLine("Example: S->A B, A->a, A->~, B->b");
+            Console.WriteLine();
+
+            List<string> inputRules = new List<string>();
+            string input;
+
+            // Read production rules
+            while ((input = Console.ReadLine()) != "END")
+            {
+                if (!string.IsNullOrWhiteSpace(input))
+                {
+                    inputRules.Add(input.Trim());
+                }
+            }
+
+            if (ParseProductionRules(inputRules))
+            {
+                CalculateFirstSets();
+                DisplayFirstSets();
+            }
+        }
+
+        static bool ParseProductionRules(List<string> rules)
+        {
+            productionRules.Clear();
+
+            foreach (var rule in rules)
+            {
+                var parts = rule.Split(new string[] { "->" }, StringSplitOptions.None);
+                if (parts.Length != 2)
+                {
+                    Console.WriteLine($"Invalid production rule format: {rule}");
+                    return false;
+                }
+
+                string leftSide = parts[0].Trim();
+                string rightSide = parts[1].Trim();
+
+                // Validate non-terminal (should be uppercase)
+                if (!Regex.IsMatch(leftSide, @"^[A-Z]$"))
+                {
+                    Console.WriteLine($"Non-terminal must be a single uppercase letter: {leftSide}");
+                    return false;
+                }
+
+                // Split right side into symbols (space-separated)
+                string[] symbols = rightSide.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+                if (!productionRules.ContainsKey(leftSide))
+                {
+                    productionRules[leftSide] = new List<string[]>();
+                }
+
+                productionRules[leftSide].Add(symbols);
+            }
+
+            return true;
+        }
+
+        static void CalculateFirstSets()
+        {
+            // Initialize FIRST sets for all non-terminals
+            foreach (var nonTerminal in productionRules.Keys)
+            {
+                firstSets[nonTerminal] = new HashSet<string>();
+            }
+
+            bool changed = true;
+            while (changed)
+            {
+                changed = false;
+
+                foreach (var kvp in productionRules)
+                {
+                    string nonTerminal = kvp.Key;
+                    List<string[]> productions = kvp.Value;
+
+                    foreach (var production in productions)
+                    {
+                        var firstOfProduction = CalculateFirstOfProduction(production);
+
+                        foreach (var symbol in firstOfProduction)
+                        {
+                            if (!firstSets[nonTerminal].Contains(symbol))
+                            {
+                                firstSets[nonTerminal].Add(symbol);
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        static HashSet<string> CalculateFirstOfProduction(string[] production)
+        {
+            HashSet<string> result = new HashSet<string>();
+
+            for (int i = 0; i < production.Length; i++)
+            {
+                string symbol = production[i];
+
+                // If it's a terminal or epsilon
+                if (!IsNonTerminal(symbol))
+                {
+                    result.Add(symbol);
+                    break;
+                }
+
+                // If it's a non-terminal
+                if (firstSets.ContainsKey(symbol))
+                {
+                    var firstOfSymbol = firstSets[symbol];
+
+                    // Add all symbols except epsilon
+                    foreach (var s in firstOfSymbol)
+                    {
+                        if (s != "~")
+                        {
+                            result.Add(s);
+                        }
+                    }
+
+                    // If epsilon is not in FIRST(symbol), stop
+                    if (!firstOfSymbol.Contains("~"))
+                    {
+                        break;
+                    }
+
+                    // If we've reached the last symbol and all previous had epsilon
+                    if (i == production.Length - 1)
+                    {
+                        result.Add("~");
+                    }
+                }
+                else
+                {
+                    // Non-terminal not found, treat as terminal
+                    result.Add(symbol);
+                    break;
+                }
+            }
+
+            return result;
+        }
+
+        static bool IsNonTerminal(string symbol)
+        {
+            return symbol.Length == 1 && char.IsUpper(symbol[0]) && productionRules.ContainsKey(symbol);
+        }
+
+        static void DisplayFirstSets()
+        {
+            Console.WriteLine("\nFIRST Sets:");
+            Console.WriteLine("============");
+
+            foreach (var kvp in firstSets.OrderBy(x => x.Key))
+            {
+                string nonTerminal = kvp.Key;
+                var firstSet = kvp.Value;
+
+                Console.WriteLine($"FIRST({nonTerminal}) = {{ {string.Join(", ", firstSet.OrderBy(x => x))} }}");
+            }
+        }
+    }
+}
+
+/* 
+Example Usage:
+Input:
+S->A B
+A->a
+A->~
+B->b
+END
+
+Output:
+FIRST(A) = { a, ~ }
+FIRST(B) = { b }
+FIRST(S) = { a, b }
+
+Another Example:
+E->T E1
+E1->+ T E1
+E1->~
+T->F T1
+T1->* F T1
+T1->~
+F->( E )
+F->id
+END
+
+Output:
+FIRST(E) = { (, id }
+FIRST(E1) = { +, ~ }
+FIRST(F) = { (, id }
+FIRST(T) = { (, id }
+FIRST(T1) = { *, ~ }
+*/
