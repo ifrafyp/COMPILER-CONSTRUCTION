@@ -1,0 +1,309 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace FirstFollowSet
+{
+    class Program
+    {
+        static Dictionary<char, List<string>> productions = new Dictionary<char, List<string>>();
+        static Dictionary<char, HashSet<char>> firstSets = new Dictionary<char, HashSet<char>>();
+        static Dictionary<char, HashSet<char>> followSets = new Dictionary<char, HashSet<char>>();
+        static char startSymbol;
+
+        static void Main(string[] args)
+        {
+            Console.WriteLine("FIRST and FOLLOW Sets Calculator");
+            Console.WriteLine("================================");
+            Console.WriteLine("Enter production rules (format: A->alpha, use $ for epsilon)");
+            Console.WriteLine("Enter 'END' to finish input");
+            Console.WriteLine("Example: S->aBc, S->$, B->b, B->$");
+            Console.WriteLine();
+
+            ReadProductions();
+            CalculateFirstSets();
+            CalculateFollowSets();
+            DisplayResults();
+
+            Console.WriteLine("\nPress any key to exit...");
+            Console.ReadKey();
+        }
+
+        static void ReadProductions()
+        {
+            string input;
+            bool isFirst = true;
+
+            while ((input = Console.ReadLine()) != "END")
+            {
+                if (string.IsNullOrWhiteSpace(input)) continue;
+
+                var parts = input.Split(new string[] { "->" }, StringSplitOptions.None);
+                if (parts.Length != 2)
+                {
+                    Console.WriteLine($"Invalid format: {input}. Use A->alpha");
+                    continue;
+                }
+
+                char leftSide = parts[0].Trim()[0];
+                string rightSide = parts[1].Trim();
+
+                // Set start symbol as the first non-terminal
+                if (isFirst)
+                {
+                    startSymbol = leftSide;
+                    isFirst = false;
+                }
+
+                if (!productions.ContainsKey(leftSide))
+                {
+                    productions[leftSide] = new List<string>();
+                }
+
+                productions[leftSide].Add(rightSide);
+            }
+        }
+
+        static void CalculateFirstSets()
+        {
+            // Initialize FIRST sets for all non-terminals
+            foreach (var nonTerminal in productions.Keys)
+            {
+                firstSets[nonTerminal] = new HashSet<char>();
+            }
+
+            bool changed = true;
+            while (changed)
+            {
+                changed = false;
+
+                foreach (var kvp in productions)
+                {
+                    char nonTerminal = kvp.Key;
+                    var productionList = kvp.Value;
+
+                    foreach (var production in productionList)
+                    {
+                        var firstOfProduction = CalculateFirstOfString(production);
+
+                        foreach (char symbol in firstOfProduction)
+                        {
+                            if (!firstSets[nonTerminal].Contains(symbol))
+                            {
+                                firstSets[nonTerminal].Add(symbol);
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        static HashSet<char> CalculateFirstOfString(string str)
+        {
+            HashSet<char> result = new HashSet<char>();
+
+            if (string.IsNullOrEmpty(str) || str == "$")
+            {
+                result.Add('$');
+                return result;
+            }
+
+            for (int i = 0; i < str.Length; i++)
+            {
+                char symbol = str[i];
+
+                if (IsNonTerminal(symbol))
+                {
+                    if (firstSets.ContainsKey(symbol))
+                    {
+                        var firstOfSymbol = firstSets[symbol];
+
+                        // Add all symbols except epsilon
+                        foreach (char s in firstOfSymbol)
+                        {
+                            if (s != '$')
+                            {
+                                result.Add(s);
+                            }
+                        }
+
+                        // If epsilon is not in FIRST(symbol), stop
+                        if (!firstOfSymbol.Contains('$'))
+                        {
+                            break;
+                        }
+
+                        // If we've reached the last symbol and all previous had epsilon
+                        if (i == str.Length - 1)
+                        {
+                            result.Add('$');
+                        }
+                    }
+                }
+                else
+                {
+                    // Terminal symbol
+                    result.Add(symbol);
+                    break;
+                }
+            }
+
+            return result;
+        }
+
+        static void CalculateFollowSets()
+        {
+            // Initialize FOLLOW sets for all non-terminals
+            foreach (var nonTerminal in productions.Keys)
+            {
+                followSets[nonTerminal] = new HashSet<char>();
+            }
+
+            // Add $ to FOLLOW of start symbol
+            followSets[startSymbol].Add('$');
+
+            bool changed = true;
+            while (changed)
+            {
+                changed = false;
+
+                foreach (var kvp in productions)
+                {
+                    char leftSide = kvp.Key;
+                    var productionList = kvp.Value;
+
+                    foreach (var production in productionList)
+                    {
+                        for (int i = 0; i < production.Length; i++)
+                        {
+                            char symbol = production[i];
+
+                            if (IsNonTerminal(symbol))
+                            {
+                                // Get the string after this symbol
+                                string beta = (i + 1 < production.Length) ? production.Substring(i + 1) : "";
+
+                                if (!string.IsNullOrEmpty(beta))
+                                {
+                                    var firstOfBeta = CalculateFirstOfString(beta);
+
+                                    // Add FIRST(beta) - {$} to FOLLOW(symbol)
+                                    foreach (char terminal in firstOfBeta)
+                                    {
+                                        if (terminal != '$' && !followSets[symbol].Contains(terminal))
+                                        {
+                                            followSets[symbol].Add(terminal);
+                                            changed = true;
+                                        }
+                                    }
+
+                                    // If $ is in FIRST(beta), add FOLLOW(leftSide) to FOLLOW(symbol)
+                                    if (firstOfBeta.Contains('$'))
+                                    {
+                                        foreach (char follow in followSets[leftSide])
+                                        {
+                                            if (!followSets[symbol].Contains(follow))
+                                            {
+                                                followSets[symbol].Add(follow);
+                                                changed = true;
+                                            }
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    // symbol is at the end, add FOLLOW(leftSide) to FOLLOW(symbol)
+                                    foreach (char follow in followSets[leftSide])
+                                    {
+                                        if (!followSets[symbol].Contains(follow))
+                                        {
+                                            followSets[symbol].Add(follow);
+                                            changed = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        static bool IsNonTerminal(char symbol)
+        {
+            return char.IsUpper(symbol) && productions.ContainsKey(symbol);
+        }
+
+        static void DisplayResults()
+        {
+            Console.WriteLine("\nProduction Rules:");
+            Console.WriteLine("=================");
+            foreach (var kvp in productions)
+            {
+                foreach (var production in kvp.Value)
+                {
+                    Console.WriteLine($"{kvp.Key} -> {production}");
+                }
+            }
+
+            Console.WriteLine("\nFIRST Sets:");
+            Console.WriteLine("===========");
+            foreach (var kvp in firstSets.OrderBy(x => x.Key))
+            {
+                var sortedFirst = kvp.Value.OrderBy(x => x == '$' ? char.MaxValue : x);
+                Console.WriteLine($"FIRST({kvp.Key}) = {{ {string.Join(", ", sortedFirst)} }}");
+            }
+
+            Console.WriteLine("\nFOLLOW Sets:");
+            Console.WriteLine("============");
+            foreach (var kvp in followSets.OrderBy(x => x.Key))
+            {
+                var sortedFollow = kvp.Value.OrderBy(x => x == '$' ? char.MaxValue : x);
+                Console.WriteLine($"FOLLOW({kvp.Key}) = {{ {string.Join(", ", sortedFollow)} }}");
+            }
+        }
+    }
+}
+
+/*
+Example Usage 1:
+Input:
+S->aBc
+S->$
+B->b
+B->$
+END
+
+Output:
+FIRST(S) = { a, $ }
+FIRST(B) = { b, $ }
+FOLLOW(S) = { $ }
+FOLLOW(B) = { c }
+
+Example Usage 2:
+Input:
+E->TX
+X->+TX
+X->$
+T->FY
+Y->*FY
+Y->$
+F->(E)
+F->id
+END
+
+Output:
+FIRST(E) = { (, id }
+FIRST(X) = { +, $ }
+FIRST(T) = { (, id }
+FIRST(Y) = { *, $ }
+FIRST(F) = { (, id }
+FOLLOW(E) = { $, ) }
+FOLLOW(X) = { $, ) }
+FOLLOW(T) = { +, $, ) }
+FOLLOW(Y) = { +, $, ) }
+FOLLOW(F) = { *, +, $, ) }
+*/
