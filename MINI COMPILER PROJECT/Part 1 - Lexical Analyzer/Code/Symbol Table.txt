@@ -1,0 +1,32 @@
+										 Symbol Table:
+
+
+
+ 		Line Number			Lexeme				Type			Attribute Value
+
+                        2                          main                     Procedure                             2
+                       12                          node                    Identifier                             5
+                       13                             a                    Identifier                             6
+                       14                          name                    Identifier                             9
+                       21                            fl                    Identifier                            12
+                       22                            l1                    Identifier                            15
+                       22                            l2                    Identifier                            17
+                       23                            _a                    Identifier                            19
+                       23                             b                    Identifier                            21
+                       23                             c                    Identifier                            22
+                       24                           arr                         Array                            24
+                       25                           ptr                       Pointer                            25
+                       26                         scanf                    Identifier                            26
+                       26                             a                    Identifier                             6
+                       26                             b                    Identifier                            21
+                       27                           sum                    Identifier                            31
+                       28                           sum                    Identifier                            31
+                       28                             a                    Identifier                             6
+                       28                             b                    Identifier                            21
+                       29                        printf                    Identifier                            33
+                       29                           sum                    Identifier                            31
+                       32                          name                       Pointer                             9
+                       33                          name                       Pointer                             9
+                       38                           abc                     Procedure                            39
+                       40                        printf                    Identifier                            33
+                       41                        printf                    Identifier                            33
